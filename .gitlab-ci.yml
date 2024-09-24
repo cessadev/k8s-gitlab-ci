@@ -1,0 +1,53 @@
+variables:
+  KUBERNETES_NAMESPACE: deploy-app
+
+default:
+  tags:
+    - kubernetes
+  image: alpine:latest
+
+stages:
+  - version
+  - test
+  - build-image
+  - deploy
+
+version:
+  stage: version
+  script:
+    - echo "VERSION=$(date +%Y%m%d%H%M%S%N)-$CI_COMMIT_BRANCH" >> build.env
+  artifacts:
+    reports:
+      dotenv: build.env
+
+test:
+  stage: test
+  script:
+    - echo "Testing..."
+
+build-image:
+  stage: build-image
+  image: 
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - pwd
+    - ls
+    - mkdir -p /kaniko/.docker
+    - |
+      echo "{ \"auths\": { \"$CI_REGISTRY\": { \"auth\": \"$(echo -n $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD | base64 -w0)\" } } }" > /kaniko/.docker/config.json
+    - cat /kaniko/.docker/config.json
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/Dockerfile --destination=$CI_REGISTRY_IMAGE:$VERSION
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  script:    
+    - apk add kubectl helm
+    - cd helm
+    - kubectl create namespace $KUBERNETES_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+    - kubectl create secret docker-registry regcred -n $KUBERNETES_NAMESPACE --docker-server=$CI_REGISTRY --docker-username=$CI_REGISTRY_USER --docker-password=$CI_REGISTRY_PASSWORD --dry-run=client -o yaml | kubectl apply -f -
+    - helm upgrade --install $CI_PROJECT_NAME . --set image=$CI_REGISTRY_IMAGE:$VERSION
+  after_script:
+    - rm -rf helm
