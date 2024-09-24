@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitlab-service-account-sa
+  namespace: gitlab-ci
+  labels:
+    app: native-app
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gitlab-service-account-cr
+  namespace: gitlab-ci
+  labels:
+    app: native-app
+rules:
+  - apiGroups:
+      - ''
+      - apps
+      - autoscaling
+      - batch
+    resources:
+      - services
+      - pods
+      - pods/log
+      - pods/exec
+      - pods/attach
+      - namespaces
+      - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
+      - horizontalpodautoscalers
+      - cronjobs
+      - jobs
+      - secrets
+    verbs:
+      - create
+      - watch
+      - get
+      - list
+      - update
+      - patch
+      - delete
+      - deletecollection
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gitlab-service-account-rbcr
+  namespace: gitlab-ci
+roleRef:
+  kind: ClusterRole
+  name: gitlab-service-account-cr
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: gitlab-service-account-sa
+    namespace: gitlab-ci
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: runner-0
+  namespace: gitlab-ci
+spec:
+  selector:
+    matchLabels:
+      name: runner-pod-0
+  template:
+    metadata:
+      namespace: gitlab-ci
+      labels:
+        name: runner-pod-0
+    spec:
+      serviceAccount: gitlab-service-account-sa
+      serviceAccountName: gitlab-service-account-sa
+      containers:
+      - name: pod
+        image: alpinelinux/gitlab-runner:latest
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        command:
+          - "/bin/sh"
+          - "-c"
+          - |           
+            gitlab-runner register \
+              --kubernetes-privileged=true \
+              --non-interactive \
+              --run-untagged=false \
+              --executor kubernetes \
+              --kubernetes-pull-policy always \
+              --request-concurrency 10 \
+              --name 'My Runner' \
+              --kubernetes-image alpine:latest \
+              --kubernetes-image-pull-secrets registry-credentials \
+              --kubernetes-namespace gitlab-ci \
+              --kubernetes-service-account gitlab-service-account-sa \
+              --tag-list kubernetes \
+              --url "https://gitlab.com/" \
+              --registration-token "GR1348941hsSbzwo1w_mKwUfKA8hs"
+
+            cat /etc/gitlab-runner/config.toml
+            
+            gitlab-runner run
