@@ -1,0 +1,55 @@
+# Valores que serán utilizados en los templates
+
+# General
+namespace: dev-app
+app:
+  name: app-k8s-v2
+  replicas: 1
+
+# Imagen de la aplicación
+image:
+  repository: app-k8s-v2
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Recursos
+resources:
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+
+# Configuración de probes
+livenessProbe:
+  path: /actuator/health
+  port: 8080
+  initialDelaySeconds: 90
+  periodSeconds: 20
+  timeoutSeconds: 10
+  failureThreshold: 5
+
+readinessProbe:
+  path: /actuator/health
+  port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 10
+  failureThreshold: 5
+
+# Puertos y tipo de servicio
+service:
+  type: NodePort
+  port: 80
+  targetPort: 8080
+  nodePort: 30007
+
+# ConfigMap de Mongo
+mongoConfig:
+  MONGO_URI: mongodb://root:example@mongo:27017/userdb?authSource=admin
+
+# Secrets de Mongo
+mongoSecret:
+  MONGO_INITDB_ROOT_USERNAME: root
+  MONGO_INITDB_ROOT_PASSWORD: example

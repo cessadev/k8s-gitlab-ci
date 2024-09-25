@@ -103,7 +103,7 @@ spec:
               --kubernetes-service-account gitlab-service-account-sa \
               --tag-list kubernetes \
               --url "https://gitlab.com/" \
-              --registration-token "GR1348941hsSbzwo1w_mKwUfKA8hs"
+              --registration-token "<your-registration-token-runner>"
 
             cat /etc/gitlab-runner/config.toml
             
